@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model users {
+  id_users_pk Int           @id @default(autoincrement())
+  name        String        @db.VarChar(100)
+  email       String        @unique(map: "email") @db.VarChar(150)
+  password    String        @db.VarChar(255)
+  role        String        @default("STUDENT") @db.VarChar(20) // STUDENT | INSTRUCTOR
+  created_at  DateTime?     @default(now()) @db.DateTime(0)
+  enrollments enrollments[]
+}
+
+// Disciplinas / cursos
+model courses {
+  id_courses_pk  Int                    @id @default(autoincrement())
+  title          String                 @unique(map: "title") @db.VarChar(150)
+  description    String                 @db.Text
+  workload_hours Int
+  created_at     DateTime?              @default(now()) @db.DateTime(0)
+  classes        classes[]
+  prerequisites  course_prerequisites[] @relation("CourseToPrerequisite")
+  required_by    course_prerequisites[] @relation("RequiredCourse")
+}
+
+// Pré-requisitos: "courses_id_fk" EXIGE "required_courses_id_fk"
+model course_prerequisites {
+  id_course_prerequisites_pk Int     @id @default(autoincrement())
+  courses_id_fk              Int
+  required_courses_id_fk     Int
+  courses                    courses @relation("CourseToPrerequisite", fields: [courses_id_fk], references: [id_courses_pk], onDelete: Cascade, onUpdate: Restrict, map: "course_prerequisites_ibfk_1")
+  required_course            courses @relation("RequiredCourse", fields: [required_courses_id_fk], references: [id_courses_pk], onDelete: Cascade, onUpdate: Restrict, map: "course_prerequisites_ibfk_2")
+
+  @@unique([courses_id_fk, required_courses_id_fk], map: "unique_course_prerequisite")
+  @@index([required_courses_id_fk], map: "required_courses_id_fk")
+}
+
+// Turmas (limite de vagas em max_students)
+model classes {
+  id_classes_pk Int           @id @default(autoincrement())
+  name          String        @db.VarChar(100)
+  max_students  Int
+  status        String        @default("OPEN") @db.VarChar(20) // OPEN | CLOSED
+  start_date    DateTime      @db.DateTime(0)
+  end_date      DateTime      @db.DateTime(0)
+  courses_id_fk Int
+  created_at    DateTime?     @default(now()) @db.DateTime(0)
+  courses       courses       @relation(fields: [courses_id_fk], references: [id_courses_pk], onUpdate: Restrict, map: "classes_ibfk_1")
+  enrollments   enrollments[]
+
+  @@index([courses_id_fk], map: "courses_id_fk")
+}
+
+// Matrículas (status: ACTIVE | LOCKED (trancada) | COMPLETED)
+model enrollments {
+  id_enrollments_pk Int           @id @default(autoincrement())
+  status            String        @default("ACTIVE") @db.VarChar(20)
+  locked_at         DateTime?     @db.DateTime(0)
+  final_grade       Float?
+  users_id_fk       Int
+  classes_id_fk     Int
+  created_at        DateTime?     @default(now()) @db.DateTime(0)
+  users             users         @relation(fields: [users_id_fk], references: [id_users_pk], onUpdate: Restrict, map: "enrollments_ibfk_1")
+  classes           classes       @relation(fields: [classes_id_fk], references: [id_classes_pk], onUpdate: Restrict, map: "enrollments_ibfk_2")
+  grades            grades[]
+  certificates      certificates?
+
+  @@unique([users_id_fk, classes_id_fk], map: "unique_user_class")
+  @@index([classes_id_fk], map: "classes_id_fk")
+}
+
+// Notas (weight em % - a soma dos pesos de uma matrícula chega a 100)
+model grades {
+  id_grades_pk      Int         @id @default(autoincrement())
+  title             String      @db.VarChar(100)
+  value             Float
+  weight            Float
+  enrollments_id_fk Int
+  created_at        DateTime?   @default(now()) @db.DateTime(0)
+  enrollments       enrollments @relation(fields: [enrollments_id_fk], references: [id_enrollments_pk], onDelete: Cascade, onUpdate: Restrict, map: "grades_ibfk_1")
+
+  @@unique([enrollments_id_fk, title], map: "unique_enrollment_grade_title")
+}
+
+model certificates {
+  id_certificates_pk Int         @id @default(autoincrement())
+  code               String      @unique(map: "code") @db.VarChar(100)
+  average            Float
+  issued_at          DateTime?   @default(now()) @db.DateTime(0)
+  enrollments_id_fk  Int         @unique(map: "enrollments_id_fk")
+  enrollments        enrollments @relation(fields: [enrollments_id_fk], references: [id_enrollments_pk], onDelete: Cascade, onUpdate: Restrict, map: "certificates_ibfk_1")
+}
