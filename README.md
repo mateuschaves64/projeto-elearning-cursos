@@ -6,44 +6,6 @@ API em Node.js (ES Modules) + Express + Prisma 7 (MySQL/MariaDB) com a **camada 
 
 ---
 
-## 1. Visão Geral do Sistema
-
-<!-- TODO (grupo): escrever com as suas palavras uma breve explicação do tema. -->
-
-### Regras de negócio implementadas (camada `src/services`)
-
-| Service | Regra | Resultado quando viola |
-|---|---|---|
-| `EnrollmentService.enroll` | Turma precisa estar `OPEN` | 422 |
-| | Aluno não pode já estar na turma, já ter concluído o curso, nem ter o mesmo curso ativo em outra turma | 409 |
-| | **Pré-requisitos**: todos os cursos exigidos precisam estar `COMPLETED` para o aluno | 422 (lista os que faltam) |
-| | **Limite de vagas**: matrículas `ACTIVE` < `max_students` | 409 |
-| | E-mail de confirmação é efeito colateral: se falhar, a matrícula é mantida | — |
-| `EnrollmentService.lockEnrollment` | **Trancamento**: só matrícula `ACTIVE` e do próprio aluno | 422 / 409 / 403 |
-| | Só até **50%** da duração da turma (no instante exato ainda pode) | 422 |
-| | No máximo **2** matrículas trancadas ao mesmo tempo | 422 |
-| | Trancar libera a vaga da turma | — |
-| `EnrollmentService.reactivateEnrollment` | Só matrícula `LOCKED`, turma `OPEN` e não encerrada, e precisa haver vaga de novo | 422 / 409 |
-| `GradeService.launchGrade` | Nota entre 0 e 10; peso > 0; soma dos pesos ≤ 100; título não repetido; matrícula `ACTIVE` | 422 / 409 |
-| `GradeService.calculateAverage` | Média **ponderada** (`Σ nota×peso / Σ peso`), arredondada em 2 casas | — |
-| `CertificateService.issueCertificate` | Matrícula do aluno e não trancada; certificado ainda não emitido | 403 / 422 / 409 |
-| | Soma dos pesos = 100 (sem avaliações pendentes) | 422 |
-| | **Média mínima 7,0** para emitir (6,99 não emite) | 422 |
-| | Emitir cria o certificado e conclui a matrícula numa transação | — |
-| `CourseService.addPrerequisite` | Curso não exige a si mesmo; sem duplicidade; **sem pré-requisito circular** (direto ou indireto) | 422 / 409 |
-| `ClassService` | Turma com ≥ 1 vaga e `end_date` > `start_date`; consulta de vagas livres | 422 |
-| `AuthService` | E-mail único; login com mensagem única para usuário/senha inválidos | 409 / 401 |
-
-Constantes (média mínima, % de trancamento, etc.) ficam em `src/constants/businessRules.js`.
-
-## 2. Conceitos de Testes Aplicados
-
-<!-- TODO (grupo): 1 parágrafo cada, escrito pelo grupo -->
-
-### Pirâmide de Testes
-### Mocks vs. Stubs
-### Padrão Factory
-### Princípios F.I.R.S.T.
 
 ## 3. Como Executar
 
@@ -54,7 +16,6 @@ Constantes (média mínima, % de trancamento, etc.) ficam em `src/constants/busi
 ### Instalação
 ```bash
 npm install
-cp env.example .env      # no Windows: copy env.example .env  (e preencha os valores)
 npx prisma generate
 npx prisma migrate dev --name criacao_das_tabelas   # ou: npx prisma db push
 npm run dev
@@ -67,23 +28,6 @@ npm run dev
 npm test                 # roda a suíte
 npm run test:coverage    # roda a suíte com cobertura (mínimo exigido: 80%)
 ```
-
-O Jest com ES Modules precisa da flag `--experimental-vm-modules` do Node; os scripts acima já a incluem.
-Se quiser o comando puro `npx jest --coverage`, defina a variável antes:
-
-```bash
-# Linux / macOS / Git Bash
-NODE_OPTIONS=--experimental-vm-modules npx jest --coverage
-
-# Windows PowerShell
-$env:NODE_OPTIONS="--experimental-vm-modules"; npx jest --coverage
-```
-
-## 4. Relatório de Resultados
-
-<!-- TODO (grupo): colar a tabela/print da cobertura e a análise crítica dos cenários mais complexos -->
-
----
 
 ## Arquitetura
 
@@ -109,8 +53,7 @@ tests/
 
 Fluxo: `rota → (auth/validação) → controller → service → model → banco`.
 
-Os services **não importam o Prisma**: recebem `models`, `emailGateway`, `clock` etc. pelo construtor.
-Por isso nos testes basta passar `jest.fn()` no lugar de cada dependência.
+
 
 ## Endpoints
 
